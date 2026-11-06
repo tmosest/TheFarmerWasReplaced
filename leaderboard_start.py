@@ -1,0 +1,1 @@
+leaderboard_run(Leaderboards.Hay_Single, "leaderboard_hay_sin", 1000)
