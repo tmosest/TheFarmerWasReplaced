@@ -153,9 +153,10 @@ def bamboo_column():
 def bamboo_parallel():
 	clear()
 	hover(15)
-	while True:
+	for _ in range(get_world_size() - 1):
 		if spawn_drone(bamboo_column):
 			move(East)
+	bamboo_column()
 
 if __name__ == "__main__":
 	# set_world_size(4)
