@@ -102,11 +102,54 @@ def dig_to_z_column(z):
 			dig()
 		move(North)
 
-# There is a bug here sometimes... idk why...	
 def dig_to_z_parallel(z):
 	drones = []
-	for i in range(get_world_size()):
+	for i in range(get_world_size() - 1):
 		drones.append(spawn_drone(dig_to_z_column, z))
 		move(East)
+	dig_to_z_column(z)
+	results = wait_for_drones(drones)
+	
+def dig_tracking_column(dont_dig_set):
+	ground_type_map = {}
+	
+	for _ in range(get_world_size()):
+		ground_type = get_ground_type()
+		list = []
+		if ground_type in ground_type_map:
+			list = ground_type_map[ground_type]	
+		x, y = get_pos_x(), get_pos_y()
+		list.append((x, y))
+		ground_type_map[ground_type] = list
+		
+		if ground_type not in dont_dig_set:
+			dig()
+		
+		move(North)
+
+	return ground_type_map
+	
+def dig_tracking_parallel(dont_dig_set):
+	drones = []
+	for i in range(get_world_size() - 1):
+		drones.append(spawn_drone(dig_tracking_column, dont_dig_set))
+		move(East)
+	
+	map = dig_tracking_column(dont_dig_set)
 	
 	results = wait_for_drones(drones)
+	results.append(map)
+	
+	ground_type_map = {}
+	for dict in results:
+		for key in dict:
+			list = []
+			if key in ground_type_map:
+				list = ground_type_map[key]
+			
+			for cord in dict[key]:
+				list.append(cord)
+				
+			ground_type_map[key] = list
+			
+	return ground_type_map

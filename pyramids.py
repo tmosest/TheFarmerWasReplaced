@@ -75,7 +75,6 @@ def harvest_flower(positions):
 def pyramid_parallel():
 	positions = dig_and_search_parallel(Grounds.Limestone)
 	flatten_to_positions(positions)
-	flatten_to_positions(positions)
 	positions = dig_and_search_parallel(Grounds.Limestone)
 	fill_pyramid_parallel(positions)
 	harvest_flower(positions)
