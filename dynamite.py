@@ -22,9 +22,4 @@ def dig_parallel_to_dynamite():
 if __name__ == "__main__":
 	jump(Unlocks.Dynamite)
 	dig_parallel_to_dynamite()
-	dig()
-	move(North)
-	move(North)
-	move(North)
-	move(North)
-	dig()
+	

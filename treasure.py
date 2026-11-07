@@ -252,6 +252,6 @@ def hunt_treasure():
 
 if __name__ == "__main__":
 	clear()
-	# set_world_size(5)
+	set_world_size(5)
 	jump(Unlocks.Treasure_Map)
 	hunt_treasure()
