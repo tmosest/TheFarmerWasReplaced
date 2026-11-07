@@ -87,7 +87,8 @@ def dig_to_z_column(z):
 		while get_pos_z() > z:
 			dig()
 		move(North)
-		
+
+# There is a bug here sometimes... idk why...	
 def dig_to_z_parallel(z):
 	drones = []
 	for i in range(get_world_size()):

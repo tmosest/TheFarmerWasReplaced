@@ -44,6 +44,7 @@ def drone_action_plant_cacti():
 		if get_ground_type() != Grounds.Soil:
 			till()
 		plant(Entities.Cactus)
+		# use_item(Items.Fertilizer)
 		move(North)
 
 def plant_cacti():

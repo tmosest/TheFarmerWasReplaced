@@ -1,12 +1,13 @@
 from harvest import bush
+from traversal import bfs, convert_path_to_moves
 
 def spawn_maze():
-	bush()
+	plant(Entities.Bush)
 	use_item(Items.Weird_Substance)
 	
 def spawn_full_maze(is_new):
 	if is_new:
-		bush()
+		plant(Entities.Bush)
 	size = get_world_size()
 	substance = size * 2**(num_unlocked(Unlocks.Mazes) - 1)
 	use_item(Items.Weird_Substance, substance)
@@ -24,10 +25,12 @@ def traverse_maze():
 	queue.append(pos)
 	
 	routes = {}
-	visited = {}
+	visited = set()
 	
 	while len(queue) > 0:
 		pos = queue.pop()
+		# prevents loops	
+		visited.add(pos)
 		
 		
 		# print(pos)
@@ -36,11 +39,9 @@ def traverse_maze():
 		# print(neighbors)
 
 		for neighbor in neighbors:
-			if (neighbor in visited) == False or visited[neighbor] == False:
+			if neighbor not in visited:
 				queue.append(neighbor)
 		
-		# prevents loops	
-		visited[pos] = True
 		# keep a list of routes
 		routes[pos] = neighbors
 		
@@ -77,70 +78,6 @@ def find_links(routes, i, j):
 		neighbors.append(point)
 	return neighbors
 	
-# Given a graph and initial and destination point it returns a path
-# from one to the other like [(0,0), (1,0), (1,1)]
-def bfs(routes, init, dest):
-	if init == dest:
-		return [init]
-	
-	queue = []
-	queue.append(init)
-	
-	visited = {}
-	visited[init] = True
-	
-	paths = {}
-	paths[init] = [init]
-	
-	while len(queue) > 0:
-		pos = queue.pop(0)
-		
-		neighbors = []
-		if pos in routes:
-			neighbors = routes[pos]
-		# print(neighbors)
-
-		for neighbor in neighbors:
-			
-			if (neighbor in visited) == False or visited[neighbor] == False:
-				queue.append(neighbor)
-				
-				path = paths[pos]
-				new_path = []
-				for node in path:
-					new_path.append(node)
-					
-				new_path.append(neighbor)
-				paths[neighbor] = new_path 
-		
-		# prevents loops	
-		visited[pos] = True
-		
-	return paths[dest]
-
-# Converts [(0,0), (1,0), (1,1)] to [East, North]
-def convert_path_to_moves(path):
-	moves = []
-	
-	if len(path) > 1:
-		
-		for i in range(len(path) - 1):
-			dest = path[i + 1]
-			init = path[i]
-			x = dest[0] - init[0]
-			y = dest[1] - init[1]
-			
-			if x > 0:
-				moves.append(East)
-			elif x < 0:
-				moves.append(West) 
-			elif y < 0:
-				moves.append(South)
-			elif y > 0:
-				moves.append(North)
-		
-	return moves 
-	
 def solve_maze():
 	spawn_full_maze(True)
 	
@@ -167,5 +104,7 @@ def solve_maze():
 		spawn_full_maze(False)
 		count = count + 1
 		print(count)
-	
-solve_maze()
+
+if __name__ == "__main__":
+	clear()
+	solve_maze()
