@@ -1,3 +1,5 @@
+# Faster solution:
+# https://github.com/ConnorTheFoolish/CtF_TFWR_Scripts/blob/main/treasureMap
 from traversal import *
 from dig_util import *
 from mega_farm import wait_for_drones

@@ -4,7 +4,8 @@ from hats import random_hats
 def wait_for_drones(drones):
 	results = []
 	for drone in drones:
-		results.append(wait_for(drone))
+		if drone != None:
+			results.append(wait_for(drone))
 	return results
 	
 def tree():
