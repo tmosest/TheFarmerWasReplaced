@@ -1,8 +1,7 @@
-# TODO update code to use rice file instead once bug is fixed
-from hats import random_hats
-from mega_farm import wait_for_drones
+from dig_util import dig_tracking_parallel
 from mushrooms import harvest_mushrooms_parallel
-from rice import generate_rice_parallel
+from pyramids_faster import pyramid_faster_parallel
+from ctf_treasure import treasure_map
 
 def dig_column():
 	random_hats()
@@ -12,19 +11,22 @@ def dig_column():
 		move(North)
 
 def dig_parallel():
+	dont_dig_set = {Grounds.Sand, Grounds.Mushroom, Grounds.Basalt}
+	
 	while True:
-		drones = []
-		while get_ground_type() != Grounds.Mushroom: #and get_ground_type() != Grounds.Clay:
-			drone = spawn_drone(dig_column)
-			if drone:
-				drones.append(drone)
-				move(East)
-		wait_for_drones(drones)
+		map = {}
+		while Grounds.Sand not in map and get_ground_type() not in dont_dig_set:
+			map = dig_tracking_parallel(dont_dig_set)
 		
 		if get_ground_type() == Grounds.Mushroom:
 			harvest_mushrooms_parallel()
-		# generate_rice_parallel()
-
+			
+		if get_ground_type() == Grounds.Basalt:
+			treasure_map()
+			
+		if Grounds.Sand in map:
+			pyramid_faster_parallel()
+		
 if __name__ == "__main__":
-	jump(Unlocks.Rice)
+	jump(Unlocks.Pyramid)
 	dig_parallel()	
