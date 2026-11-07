@@ -23,6 +23,16 @@ def move_to(i, j):
 			
 		x = get_pos_x()
 		y = get_pos_y()
+		
+def move_to_center():
+	x = get_world_size() / 2
+	y = get_world_size() / 2 
+	
+	if get_world_size() % 2 == 1:
+		x = (get_world_size() - 1) / 2
+		y = (get_world_size() - 1) / 2
+		
+	move_to(x, y) 
 	
 # Given a graph and initial and destination point it returns a path
 # from one to the other like [(0,0), (1,0), (1,1)]
