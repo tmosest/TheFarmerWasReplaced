@@ -11,6 +11,20 @@ def dig_to_column(ground_type):
 		
 		move(North)
 		
+
+def dig_parallel_to_ground(ground_type):
+	drones = []
+	
+	i = 0
+	while i < get_world_size():
+		drone = spawn_drone(dig_to_column, ground_type)
+		if drone:
+			drones.append(drone)
+			move(East)
+			i = i + 1
+		
+	wait_for_drones(drones)
+		
 def dig_feild_column():
 	for _ in range(get_world_size()):
 		dig()

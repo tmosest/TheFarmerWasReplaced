@@ -1,39 +1,7 @@
 # Bug keeps going straight down after it gets past the rice...
-from dig_util import dig_to_column
+from dig_util import dig_parallel_to_ground
 from mega_farm import wait_for_drones
 
-def dig_to_clay_column():
-	dig_to_column(Grounds.Clay)
-	
-
-def dig_parallel_to_clay():
-	drones = []
-	
-	i = 0
-	while i < get_world_size():
-		drone = spawn_drone(dig_to_clay_column)
-		if drone:
-			drones.append(drone)
-			move(East)
-			i = i + 1
-		
-	wait_for_drones(drones)
-	
-def dig_to_rock_column():
-	dig_to_column(Grounds.Rock)
-	
-def dig_parallel_to_rock():
-	drones = []
-	
-	i = 0
-	while i < get_world_size():
-		drone = spawn_drone(dig_to_rock_column)
-		if drone:
-			drones.append(drone)
-			move(East)
-			i = i + 1
-		
-	wait_for_drones(drones)
 	
 def plant_rice_column():
 	for _ in range(get_world_size()):
@@ -77,7 +45,7 @@ def harvest_rice_parallel():
 	
 def generate_full_rice_parallel():
 	while get_ground_type() == Grounds.Clay or get_ground_type() == Grounds.Dry_Rice_Terrace or get_ground_type() == Grounds.Rice_Terrace:
-		dig_parallel_to_clay()
+		dig_parallel_to_ground(Grounds.Clay)
 		plant_rice_parallel()
 		harvest_rice_parallel()
 		
@@ -109,7 +77,7 @@ def generate_rice_parallel():
 if __name__ == "__main__":
 	clear()
 	jump(Unlocks.Rice)
-	# dig_parallel_to_clay()
-	# generate_full_rice_parallel()
-	generate_rice_parallel()
+	dig_parallel_to_ground(Grounds.Clay)
+	generate_full_rice_parallel()
+	# generate_rice_parallel()
 	
