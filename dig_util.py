@@ -2,7 +2,7 @@ from hats import random_hats
 from mega_farm import wait_for_drones
 from traversal import move_to
 
-def dig_to_column(ground_type):
+def dig_to_column(ground_type=None):
 	random_hats()
 	for _ in range(get_world_size()):
 		

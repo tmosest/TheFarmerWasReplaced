@@ -1,20 +1,10 @@
-from hats import random_hats
+# Very ineffective way of doing it.
+# Clear out each alternating column and then just try to push East
 from mega_farm import wait_for_drones
 from traversal import move_to
-from dig_util import dig_to_column
-
-def dig_column():
-	random_hats()
-	for _ in range(get_world_size()):
-		dig()
-		move(North)
-		
-def dig_to_mushrooms_column():
-	dig_to_column(Grounds.Mushroom)
+from dig_util import *
 		
 def harvest_mushrooms_column():
-	random_hats()
-	
 	for _ in range(get_world_size()):
 		
 		mushroom = measure()
@@ -32,27 +22,13 @@ def harvest_mushrooms_column():
 			dig()
 			
 		move(North)
-		
-		
-def dig_parallel_to_mushrooms():
-	drones = []
-	
-	i = 0
-	while i < get_world_size():
-		drone = spawn_drone(dig_to_mushrooms_column)
-		if drone:
-			drones.append(drone)
-			move(East)
-			i = i + 1
-		
-	wait_for_drones(drones)
 	
 
 def dig_parallel_odd():
 	drones = []
 	for i in range(get_world_size()):
 		if i % 2 == 1:
-			drones.append(spawn_drone(dig_column))
+			drones.append(spawn_drone(dig_feild_column))
 		move(East)
 		
 	wait_for_drones(drones)
@@ -75,5 +51,5 @@ def harvest_mushrooms_parallel():
 	
 if __name__ == "__main__":
 	jump(Unlocks.Mushrooms)
-	dig_parallel_to_mushrooms()
+	dig_parallel_to_ground(Grounds.Mushroom)
 	harvest_mushrooms_parallel()
