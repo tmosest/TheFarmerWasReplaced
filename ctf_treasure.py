@@ -1,5 +1,6 @@
 # https://github.com/ConnorTheFoolish/CtF_TFWR_Scripts/blob/main/treasureMap
 # Cleaned up and refactored some.
+# Found a bug when the path connects from one end to the other it can get stuck in an infinite loop
 from dig_util import *
 from traversal import move_to
 				
@@ -82,7 +83,7 @@ def generate_instructions(path):
 			
 	return instructions
 	
-def treasure_map():
+def treasure_map(level_after=True):
 	dig_parallel_to_ground(Grounds.Basalt)
 	move_to(0, 0)
 	map = measure()
@@ -100,11 +101,16 @@ def treasure_map():
 	harvest()
 	
 	# clean up
-	z = get_pos_z()
-	dig_to_z_parallel(z)
-	
+	if level_after:
+		z = get_pos_z()
+		dig_to_z_parallel(z)
+		
 				
 if __name__ == "__main__":
 	clear()
 	jump(Unlocks.Treasure_Map)
-	treasure_map()
+	while True:
+		treasure_map(False)
+		while get_ground_type() != Grounds.Basalt:
+			move_to(0, 0)
+			dig()

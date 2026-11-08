@@ -152,7 +152,12 @@ def dynamite():
 if __name__ == "__main__":
 	# Bug with set world size...
 	# set_world_size(16)
+	clear()
 	jump(Unlocks.Dynamite)
-	dynamite()
+	while True:
+		dynamite()
+		while get_ground_type() != Grounds.Dynamite:
+			move_to(0, 0)
+			dig()
 	
 	

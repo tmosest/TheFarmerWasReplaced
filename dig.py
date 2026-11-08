@@ -25,5 +25,5 @@ def dig_parallel():
 			pyramid_faster_parallel()
 		
 if __name__ == "__main__":
-	jump(Unlocks.Dynamite)
+	jump(Unlocks.Treasure_Map)
 	dig_parallel()	
