@@ -1,9 +1,6 @@
 from traversal import move_to, move_to_center
 from dig_util import dig_parallel_to_ground
 
-clear()
-jump(Unlocks.Dynamite)
-dig_parallel_to_ground(Grounds.Dynamite)
 # ==========================================
 # MINESWEEPER SOLVER
 # The Farmer Was Replaced
@@ -118,6 +115,138 @@ def add_constraint(cells_list, mines_list, cells, mines):
 
 	return 1
 
+# ==========================================
+# INCREMENTAL CONSTRAINT STATE
+# ==========================================
+
+# Cached constraint for each revealed clue.
+clue_cells = []
+clue_mines = []
+clue_active = []
+
+# Clues requiring recalculation.
+dirty_clues = []
+dirty_flags = []
+
+# Cells whose states have changed.
+changed_cells = []
+
+for i in range(TOTAL):
+
+	clue_cells.append([])
+	clue_mines.append(0)
+	clue_active.append(0)
+
+	dirty_flags.append(0)
+
+def mark_cell_changed(cell):
+
+	if not contains_cell(changed_cells, cell):
+		changed_cells.append(cell)
+
+def mark_dirty_clue(cell):
+
+	if state[cell] != SOOT:
+		return
+
+	if dirty_flags[cell] == 0:
+
+		dirty_flags[cell] = 1
+		dirty_clues.append(cell)
+
+
+def mark_affected_clues(cell):
+
+	x = cell % SIZE
+	y = cell // SIZE
+
+	# The changed cell might itself be a revealed clue.
+	mark_dirty_clue(cell)
+
+	for d in range(8):
+
+		nx = x + dx[d]
+		ny = y + dy[d]
+
+		if inside(nx, ny):
+
+			neighbor = get_index(nx, ny)
+
+			mark_dirty_clue(neighbor)
+
+active_clues = []
+
+
+def remove_active_clue(clue):
+
+	for i in range(len(active_clues)):
+
+		if active_clues[i] == clue:
+
+			active_clues.pop(i)
+			return
+
+
+def update_clue_constraint(clue):
+
+	unknown = []
+	known_mines = 0
+
+	x = clue % SIZE
+	y = clue // SIZE
+
+	for d in range(8):
+
+		nx = x + dx[d]
+		ny = y + dy[d]
+
+		if inside(nx, ny):
+
+			neighbor = get_index(nx, ny)
+
+			if state[neighbor] == UNKNOWN:
+
+				unknown.append(neighbor)
+
+			elif state[neighbor] == MINE:
+
+				known_mines += 1
+
+	remaining = numbers[clue] - known_mines
+
+	# Validate the constraint.
+	if remaining < 0:
+		return -1
+
+	if remaining > len(unknown):
+		return -1
+
+	# No unknown neighbors remain.
+	if len(unknown) == 0:
+
+		if remaining != 0:
+			return -1
+
+		clue_cells[clue] = []
+		clue_mines[clue] = 0
+
+		if clue_active[clue] == 1:
+
+			clue_active[clue] = 0
+			remove_active_clue(clue)
+
+		return 1
+
+	# Update cached constraint.
+	clue_cells[clue] = unknown
+	clue_mines[clue] = remaining
+
+	if clue_active[clue] == 0:
+
+		clue_active[clue] = 1
+		active_clues.append(clue)
+
+	return 1
 
 # ==========================================
 # PARALLEL SCANNING
@@ -128,84 +257,177 @@ worker_numbers = []
 worker_start = 0
 worker_end = 0
 
-def dig_worker(target):
+def dig_worker_batch(targets):
 
-	target_x = target % SIZE
-	target_y = target // SIZE
+	pending = []
 
-	# Move to assigned tile.
-	while get_pos_x() < target_x:
-		move(East)
+	for i in range(len(targets)):
+		pending.append(targets[i])
 
-	while get_pos_x() > target_x:
-		move(West)
+	results = []
+	complete = 0
 
-	while get_pos_y() < target_y:
-		move(North)
+	while len(pending) > 0:
 
-	while get_pos_y() > target_y:
-		move(South)
+		# Another drone may have finished the game.
+		# We are standing on soot after our previous dig.
+		if len(results) > 0:
 
-	# Dig the guaranteed-safe tile.
-	dig()
+			if measure() == None:
+				complete = 1
+				break
 
-	# Return the discovered number.
-	return [target, measure()]
+		# Find the nearest remaining cell.
+		best_index = 0
+		best_distance = 999999
+
+		x = get_pos_x()
+		y = get_pos_y()
+
+		for i in range(len(pending)):
+
+			cell = pending[i]
+
+			target_x = cell % SIZE
+			target_y = cell // SIZE
+
+			distance = abs(target_x - x) + abs(target_y - y)
+
+			if distance < best_distance:
+
+				best_distance = distance
+				best_index = i
+
+		target = pending[best_index]
+
+		# Move and dig.
+		move_to_cell(target)
+		dig()
+
+		number = measure()
+
+		results.append([target, number])
+
+		# None means all dynamite has been found.
+		if number == None:
+
+			complete = 1
+			break
+
+		# Remove completed target.
+		next_pending = []
+
+		for i in range(len(pending)):
+
+			if i != best_index:
+				next_pending.append(pending[i])
+
+		pending = next_pending
+
+	return [results, complete]
 	
 def dig_safe_cells_parallel():
 
-	drones = []
+	safe_cells = []
 
-	# Reserve one drone for the coordinator.
-	capacity = max_drones() - 1
-
-	if capacity < 1:
-		capacity = 1
-
-	# Spawn workers for known-safe tiles.
 	for cell in range(TOTAL):
 
 		if state[cell] == SAFE:
+			safe_cells.append(cell)
 
-			if len(drones) >= capacity:
-				break
-
-			drone = spawn_drone(dig_worker, cell)
-
-			if drone != None:
-				drones.append(drone)
-			else:
-				break
-
-	# If spawning failed entirely, let the starter dig.
-	if len(drones) == 0:
-
-		for cell in range(TOTAL):
-
-			if state[cell] == SAFE:
-
-				move_to_cell(cell)
-				dig()
-
-				state[cell] = SOOT
-				numbers[cell] = measure()
-
-				return 1
-
+	if len(safe_cells) == 0:
 		return 0
 
-	# Collect results.
+	# Total workers, including coordinator.
+	total_slots = max_drones()
+
+	if total_slots < 1:
+		total_slots = 1
+
+	if total_slots > MAX_DRONES + 1:
+		total_slots = MAX_DRONES + 1
+
+	worker_count = len(safe_cells)
+
+	if worker_count > total_slots:
+		worker_count = total_slots
+
+	# Create batches.
+	batches = []
+
+	for i in range(worker_count):
+		batches.append([])
+
+	for i in range(len(safe_cells)):
+
+		batch = i % worker_count
+
+		batches[batch].append(safe_cells[i])
+
+	drones = []
+	main_targets = batches[0]
+
+	# Spawn workers for all batches except the coordinator.
+	for i in range(1, worker_count):
+
+		drone = spawn_drone(dig_worker_batch, batches[i])
+
+		if drone != None:
+
+			drones.append(drone)
+
+		else:
+
+			# If spawning fails, the coordinator handles
+			# the unassigned batch.
+			for j in range(len(batches[i])):
+				main_targets.append(batches[i][j])
+
+	# Coordinator digs simultaneously with the other drones.
+	main_result = dig_worker_batch(main_targets)
+
+	all_results = []
+	all_results.append(main_result)
+
+	# Collect worker results.
 	for i in range(len(drones)):
 
 		result = wait_for(drones[i])
 
-		target = result[0]
-		number = result[1]
+		all_results.append(result)
 
-		state[target] = SOOT
-		numbers[target] = number
+	# Update board state.
+	dug_count = 0
+	complete = 0
 
-	return len(drones)
+	for i in range(len(all_results)):
+
+		result = all_results[i]
+
+		dig_results = result[0]
+
+		if result[1] == 1:
+			complete = 1
+
+		for j in range(len(dig_results)):
+
+			target = dig_results[j][0]
+			number = dig_results[j][1]
+
+			state[target] = SOOT
+			numbers[target] = number
+
+			mark_cell_changed(target)
+
+			dug_count += 1
+
+			if number == None:
+				complete = 1
+
+	if complete:
+		return -1
+
+	return dug_count
 
 
 def scan_constraints_worker():
@@ -316,6 +538,53 @@ def build_constraints_parallel():
 
 	return constraint_cells, constraint_mines, 1
 
+def build_constraints_incremental():
+
+	global changed_cells
+	global dirty_clues
+
+	# Mark affected clues.
+	for i in range(len(changed_cells)):
+
+		cell = changed_cells[i]
+
+		mark_affected_clues(cell)
+
+	changed_cells = []
+
+	# Update only dirty constraints.
+	for i in range(len(dirty_clues)):
+
+		clue = dirty_clues[i]
+
+		result = update_clue_constraint(clue)
+
+		if result == -1:
+			return [], [], -1
+
+		dirty_flags[clue] = 0
+
+	dirty_clues = []
+
+	# Return active cached constraints.
+	constraint_cells = []
+	constraint_mines = []
+
+	for i in range(len(active_clues)):
+
+		clue = active_clues[i]
+
+		added = add_constraint(
+			constraint_cells,
+			constraint_mines,
+			clue_cells[clue],
+			clue_mines[clue]
+		)
+
+		if added == -1:
+			return [], [], -1
+
+	return constraint_cells, constraint_mines, 1
 
 # ==========================================
 # PARALLEL SUBSET DEDUCTION
@@ -814,142 +1083,233 @@ def move_to_cell(target):
 	while get_pos_y() > target_y:
 		move(South)
 
-
-# ==========================================
-# STARTING TILE
-# ==========================================
-
-start = get_index(get_pos_x(), get_pos_y())
-
-dig()
-
-state[start] = SOOT
-numbers[start] = measure()
-
-
-# ==========================================
-# MAIN SOLVER
-# ==========================================
-
-running = True
-
-while running:
-
-	# --------------------------------------
-	# 1. Scan the board in parallel.
-	# --------------------------------------
-
-	constraint_cells, constraint_mines, scan_status = build_constraints_parallel()
-
-	if scan_status != 1:
-
-		running = False
-		break
-
-	# --------------------------------------
-	# 2. Close deterministic constraints.
-	# --------------------------------------
-
-	constraint_cells, constraint_mines, safe_cells, mine_cells, deduction_status = close_constraints_parallel(
-		constraint_cells,
-		constraint_mines
-	)
-
-	if deduction_status != 1:
-
-		running = False
-		break
-
-	# --------------------------------------
-	# 3. Apply deductions centrally.
-	# --------------------------------------
-
-	changed = False
-
-	for i in range(len(mine_cells)):
-
-		cell = mine_cells[i]
-
-		if state[cell] == UNKNOWN:
-
-			state[cell] = MINE
-			changed = True
-
-	for i in range(len(safe_cells)):
-
-		cell = safe_cells[i]
-
-		if state[cell] == UNKNOWN:
-
-			state[cell] = SAFE
-			changed = True
-
-	# --------------------------------------
-	# 4. Dig all known-safe tiles in parallel.
-	# --------------------------------------
-
-	dug = dig_safe_cells_parallel()
-
-	if dug > 0:
-
-		continue
-
-	if changed:
-
-		continue
-
-	 # --------------------------------------
-	# 5. No guaranteed-safe tiles.
-	#    Calculate probabilities.
-	# --------------------------------------
-
-	frontier, frequencies, solution_counts, probability_status = calculate_component_probabilities(
-		constraint_cells,
-		constraint_mines
-	)
-
-	if probability_status != 1:
-
-		running = False
-		break
-
-	best = -1
-
-	for i in range(len(frontier)):
-
-		if solution_counts[i] > 0:
-
-			if best == -1:
-
-				best = i
-
-			else:
-
-				left = frequencies[i] * solution_counts[best]
-				right = frequencies[best] * solution_counts[i]
-
-				if left < right:
-					best = i
-
-	if best == -1:
-
-		running = False
-		break
-
-	# --------------------------------------
-	# 6. Make one probabilistic guess.
-	# --------------------------------------
-
-	target = frontier[best]
-
-	move_to_cell(target)
-
-	dig()
-
-	state[target] = SOOT
-	numbers[target] = measure()
-
-# ==========================================
-# SOLVER FINISHED
-# ==========================================
+def dynamite_full():
+	global state
+	global numbers
 	
+	global clue_cells
+	global clue_mines
+	global clue_active
+	
+	global dirty_clues
+	global dirty_flags
+	
+	global changed_cells
+
+	global active_clues
+	global worker_state
+	global worker_numbers
+	global worker_start
+	global worker_end
+	global subset_worker_cells
+	global subset_worker_mines
+	global subset_worker_start
+	global subset_worker_end
+	global component_worker_size
+	global component_worker_constraints
+	global component_worker_mines
+
+	dig_parallel_to_ground(Grounds.Dynamite)
+	# ==========================================
+	# RESET GLOBAL STATE
+	# ==========================================
+
+	state = []
+	numbers = []
+
+	# Cached constraint for each revealed clue.
+	clue_cells = []
+	clue_mines = []
+	clue_active = []
+
+	# Clues requiring recalculation.
+	dirty_clues = []
+	dirty_flags = []
+
+	# Cells whose states have changed.
+	changed_cells = []
+
+	active_clues = []
+	worker_state = []
+	worker_numbers = []
+	worker_start = 0
+	worker_end = 0
+	subset_worker_cells = []
+	subset_worker_mines = []
+	subset_worker_start = 0
+	subset_worker_end = 0
+	component_worker_size = 0
+	component_worker_constraints = []
+	component_worker_mines = []
+
+	for i in range(TOTAL):
+		state.append(UNKNOWN)
+		numbers.append(0)
+
+	for i in range(TOTAL):
+		clue_cells.append([])
+		clue_mines.append(0)
+		clue_active.append(0)
+
+		dirty_flags.append(0)
+
+
+	# ==========================================
+	# STARTING TILE
+	# ==========================================
+	
+	start = get_index(get_pos_x(), get_pos_y())
+	
+	dig()
+	
+	state[start] = SOOT
+	numbers[start] = measure()
+
+	mark_cell_changed(start)
+
+	running = True
+	
+	if numbers[start] == None:
+		running = False
+
+	# ==========================================
+	# MAIN SOLVER
+	# ==========================================
+	
+	while running:
+
+		# --------------------------------------
+		# 1. Scan the board in parallel.
+		# --------------------------------------
+	
+		constraint_cells, constraint_mines, scan_status = build_constraints_incremental()
+	
+		if scan_status != 1:
+	
+			running = False
+			break
+	
+		# --------------------------------------
+		# 2. Close deterministic constraints.
+		# --------------------------------------
+	
+		constraint_cells, constraint_mines, safe_cells, mine_cells, deduction_status = close_constraints_parallel(
+			constraint_cells,
+			constraint_mines
+		)
+	
+		if deduction_status != 1:
+	
+			running = False
+			break
+	
+		# --------------------------------------
+		# 3. Apply deductions centrally.
+		# --------------------------------------
+	
+		changed = False
+	
+		for i in range(len(mine_cells)):
+	
+			cell = mine_cells[i]
+	
+			if state[cell] == UNKNOWN:
+	
+				state[cell] = MINE
+				mark_cell_changed(cell)
+				changed = True
+	
+		for i in range(len(safe_cells)):
+	
+			cell = safe_cells[i]
+	
+			if state[cell] == UNKNOWN:
+	
+				state[cell] = SAFE
+				mark_cell_changed(cell)
+				changed = True
+
+		# --------------------------------------
+		# 4. Dig all known-safe tiles in parallel.
+		# --------------------------------------
+	
+		dug = dig_safe_cells_parallel()
+		
+		if dug == -1:
+			running = False
+			break
+	
+		if dug > 0:
+	
+			continue
+	
+		if changed:
+	
+			continue
+
+		# --------------------------------------
+		# 5. No guaranteed-safe tiles.
+		#    Calculate probabilities.
+		# --------------------------------------
+	
+		frontier, frequencies, solution_counts, probability_status = calculate_component_probabilities(
+			constraint_cells,
+			constraint_mines
+		)
+	
+		if probability_status != 1:
+	
+			running = False
+			break
+	
+		best = -1
+	
+		for i in range(len(frontier)):
+	
+			if solution_counts[i] > 0:
+	
+				if best == -1:
+	
+					best = i
+	
+				else:
+	
+					left = frequencies[i] * solution_counts[best]
+					right = frequencies[best] * solution_counts[i]
+	
+					if left < right:
+						best = i
+	
+		if best == -1:
+	
+			running = False
+			break
+
+		# --------------------------------------
+		# 6. Make one probabilistic guess.
+		# --------------------------------------
+	
+		target = frontier[best]
+	
+		move_to_cell(target)
+	
+		dig()
+	
+		state[target] = SOOT
+		numbers[target] = measure()
+		
+		if numbers[target] == None:
+			running = False
+			break
+
+	# ==========================================
+	# SOLVER FINISHED
+	# ==========================================
+			
+if __name__ == "__main__":
+	clear()
+	jump(Unlocks.Dynamite)
+	while True:
+		dynamite_full()
+		while get_ground_type() != Grounds.Dynamite:
+			dig()
