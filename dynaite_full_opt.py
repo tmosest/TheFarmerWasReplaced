@@ -852,26 +852,48 @@ def close_constraints_parallel(constraint_cells, constraint_mines):
 
 			chunk_size = count // workers
 			drones = []
+			fallback_ranges = []
 
-			# Spawn all workers before waiting.
+			# Spawn workers.
 			for i in range(workers):
+
+				start = i * chunk_size
+
+				if i == workers - 1:
+					end = count
+				else:
+					end = (i + 1) * chunk_size
 
 				subset_worker_cells = constraint_cells
 				subset_worker_mines = constraint_mines
+				subset_worker_index = subset_worker_index
 
-				subset_worker_start = i * chunk_size
-
-				if i == workers - 1:
-					subset_worker_end = count
-				else:
-					subset_worker_end = (i + 1) * chunk_size
+				subset_worker_start = start
+				subset_worker_end = end
 
 				drone = spawn_drone(subset_deduction_worker)
 
 				if drone != None:
+
 					drones.append(drone)
 
-			# Collect results after spawning.
+				else:
+
+					# Preserve work that could not be spawned.
+					fallback_ranges.append([start, end])
+
+			# Coordinator processes failed worker ranges.
+			for i in range(len(fallback_ranges)):
+
+				subset_worker_start = fallback_ranges[i][0]
+				subset_worker_end = fallback_ranges[i][1]
+
+				result = subset_deduction_worker()
+
+				if result != None:
+					results.append(result)
+
+			# Collect successful workers.
 			for i in range(len(drones)):
 
 				result = wait_for(drones[i])
@@ -1242,7 +1264,9 @@ def calculate_component_probabilities(constraint_cells, constraint_mines):
 
 			if component_size > MAX_COMPONENT_SIZE:
 
-				return frontier, frequencies, solution_counts, -1
+				# Skip exact enumeration for oversized components.
+				# The caller can use a fallback strategy.
+				return frontier, frequencies, solution_counts, -2
 
 			# Map frontier indexes to local component indexes.
 			local_index = []
@@ -1314,8 +1338,7 @@ def calculate_component_probabilities(constraint_cells, constraint_mines):
 			solutions = result[1]
 
 			if solutions == 0:
-
-				return frontier, frequencies, solution_counts, 0
+				return frontier, frequencies, solution_counts, -3
 
 			for j in range(len(task_cells[task])):
 
@@ -1426,35 +1449,21 @@ def dynamite_full():
 	component_worker_size = 0
 	component_worker_constraints = []
 	component_worker_mines = []
-
-	for i in range(TOTAL):
-		clue_cells.append([])
-		clue_mines.append(0)
-		clue_active.append(0)
 	
-		dirty_flags.append(0)
-	
-		for i in range(TOTAL):
-			state.append(UNKNOWN)
-			numbers.append(0)
-
 	zero_queue = []
 	zero_processed = []
-
+	
 	for i in range(TOTAL):
-		zero_processed.append(0)
 
-	for i in range(TOTAL):
+		state.append(UNKNOWN)
+		numbers.append(0)
 
 		clue_cells.append([])
 		clue_mines.append(0)
 		clue_active.append(0)
 
 		dirty_flags.append(0)
-
-	for i in range(TOTAL):
-		state.append(UNKNOWN)
-		numbers.append(0)
+		zero_processed.append(0)
 
 	# ==========================================
 	# STARTING TILE
@@ -1572,9 +1581,57 @@ def dynamite_full():
 		)
 	
 		if probability_status != 1:
-	
-			running = False
-			break
+
+			# No exact probability solution available.
+			# Fall back to the safest frontier cell.
+
+			if probability_status == -1:
+				# Component too large for exact enumeration.
+				pass
+
+			elif probability_status == 0:
+				# No valid assignments found.
+				running = False
+				break
+
+			else:
+				# Unexpected solver error.
+				running = False
+				break
+
+			# Select a fallback candidate.
+			best = -1
+
+			for i in range(len(frontier)):
+
+				if best == -1:
+					best = i
+
+				else:
+					if len(frontier) > 0:
+						if frequencies[i] < frequencies[best]:
+							best = i
+
+			if best == -1:
+				running = False
+				break
+
+			target = frontier[best]
+
+			move_to_cell(target)
+			dig()
+
+			state[target] = SOOT
+			numbers[target] = measure()
+
+			register_zero(target)
+			mark_cell_changed(target)
+
+			if numbers[target] == None:
+				running = False
+				break
+
+			continue
 	
 		best = -1
 	
