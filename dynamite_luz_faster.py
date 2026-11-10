@@ -1,5 +1,5 @@
 # https://steamcommunity.com/app/2060160/discussions/0/570428419877172841/
-# Much faster but errors out sometimes...
+# Much faster but errors out s
 N = get_world_size()
 NN = N * N
 DESCENTE_MAX = 300

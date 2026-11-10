@@ -82,7 +82,10 @@ def pyramid_parallel():
 
 if __name__ == "__main__":
 	clear()
+	# set_world_size(5)
 	jump(Unlocks.Pyramid)
 	while True:
+		while get_ground_type() != Grounds.Limestone:
+			dig()
 		pyramid_parallel()
 	
