@@ -1310,6 +1310,10 @@ if __name__ == "__main__":
 	clear()
 	jump(Unlocks.Dynamite)
 	while True:
+		#while get_pos_z() > -600:
+		#	dig()
+		#while get_ground_type() != Grounds.Dynamite:
+		#	dig()
 		dynamite_full()
 		while get_ground_type() != Grounds.Dynamite:
 			dig()

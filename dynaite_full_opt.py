@@ -1,4 +1,4 @@
-# Tried to update dynamite_full to run faster but this appears to fail more...
+# Tried to update dynamite_full to run faster but it didn't appear to work...
 from traversal import move_to, move_to_center
 from dig_util import dig_parallel_to_ground
 
@@ -99,20 +99,57 @@ def difference_cells(a, b):
 
 	return result
 
+def constraint_hash(cells):
 
-def add_constraint(cells_list, mines_list, cells, mines):
+	total = 0
+	product = 1
 
-	for i in range(len(cells_list)):
+	for i in range(len(cells)):
 
-		if same_cells(cells_list[i], cells):
+		value = cells[i] + 1
 
-			if mines_list[i] != mines:
-				return -1
+		total += value * value
+		product = (product * (value * 31 + 7)) % 2147483647
 
-			return 0
+	return total * 2147483647 + product
+
+def constraint_key(cells):
+	key = ""
+	for i in range(len(cells)):
+		if i > 0:
+			key += ","
+		key += str(cells[i])
+	return key
+
+constraint_lookup = {}
+
+def constraint_key(cells):
+	key = ""
+	for i in range(len(cells)):
+		if i > 0:
+			key += ","
+		key += str(cells[i])
+	return key
+
+
+def add_constraint(cells_list, mines_list, lookup, cells, mines):
+
+	# Build a canonical key.
+	key = constraint_key(cells)
+
+	if key in lookup:
+		index = lookup[key]
+
+		if mines_list[index] != mines:
+			return -1
+
+		return 0
+
+	index = len(cells_list)
 
 	cells_list.append(cells)
 	mines_list.append(mines)
+	lookup[key] = index
 
 	return 1
 
@@ -543,9 +580,11 @@ def build_constraints_parallel():
 	global worker_numbers
 	global worker_start
 	global worker_end
+	global constraint_lookup
 
 	constraint_cells = []
 	constraint_mines = []
+	constraint_lookup = {}
 
 	workers = WORKERS
 
@@ -623,6 +662,7 @@ def build_constraints_incremental():
 	# Return active cached constraints.
 	constraint_cells = []
 	constraint_mines = []
+	constraint_lookup = {}
 
 	for i in range(len(active_clues)):
 
@@ -937,6 +977,7 @@ def close_constraints_parallel(constraint_cells, constraint_mines):
 				added = add_constraint(
 					constraint_cells,
 					constraint_mines,
+					constraint_lookup,
 					derived_cells[j],
 					derived_mines[j]
 				)
@@ -1376,6 +1417,7 @@ def move_to_cell(target):
 def dynamite_full():
 	global state
 	global numbers
+	global constraint_lookup
 	
 	global clue_cells
 	global clue_mines
@@ -1411,6 +1453,7 @@ def dynamite_full():
 
 	state = []
 	numbers = []
+	constraint_lookup = {}
 
 	for i in range(TOTAL):
 		state.append(UNKNOWN)
